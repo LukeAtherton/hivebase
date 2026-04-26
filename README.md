@@ -10,10 +10,13 @@ A supervision cockpit for one human commanding 10+ AI coding agents in parallel.
 
 ## Reading order
 
+If you're picking the project up cold, read in this order:
+
+- [`docs/state-of-the-system.md`](docs/state-of-the-system.md) — **start here.** Factual snapshot: what's built, what works end-to-end, what's known-rough. Architecture diagram. Last verified date.
 - [`VISION.md`](VISION.md) — research synthesis and design principles. Why this exists, what it isn't, the academic foundations (Sheridan, Endsley, Horvitz, Mark, Pirolli, Lee & See).
-- [`COCKPIT_PLAN.md`](COCKPIT_PLAN.md) — phase-1 architecture and implementation plan.
+- [`docs/phase-1-retro.md`](docs/phase-1-retro.md) — retrospective on the first build phase mapped back to the academic frame, plus the three-track phase-2 roadmap.
+- [`COCKPIT_PLAN.md`](COCKPIT_PLAN.md) — phase-1 architecture and implementation plan; the source of truth for the trade-off decisions made along the way (notably CLI-vs-SDK adapter rationale).
 - [`cockpit-iteration-log.md`](cockpit-iteration-log.md) — running journal of build cycles, what was tried, what changed.
-- [`docs/phase-1-retro.md`](docs/phase-1-retro.md) — retrospective on the first build phase, mapped back to the academic frame.
 
 ## What's here
 
