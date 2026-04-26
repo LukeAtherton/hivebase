@@ -8,11 +8,14 @@
 //     predicate the server uses and dispatches `cockpit:ticker-item`
 //     CustomEvents we listen to here.
 //
-// Scroll mechanics: two copies of the items are rendered back-to-back
-// in a single flex row that translates by -50% over a duration scaled
-// to total content width. CSS-only loop, no JS animation tick.
+// Scroll mechanics: Framer Motion's parallax-ticker pattern. A
+// motion value advances each frame at constant px/s, wrapped into
+// the range [-contentWidth, 0]. We render enough duplicate copies
+// of the row to always overflow the viewport, so the wrap point is
+// invisible regardless of how many items there are.
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { motion, useAnimationFrame, useMotionValue, useTransform, wrap } from 'motion/react';
 import clsx from 'clsx';
 import { api, type TickerItem } from '../lib/api';
 import { useCockpitStore } from '../store/cockpitStore';
@@ -24,8 +27,10 @@ const SCROLL_SPEED_PX_S = 60;
 export function NewsTicker() {
   const [items, setItems] = useState<TickerItem[]>([]);
   const setSelected = useCockpitStore((s) => s.setSelected);
-  const trackRef = useRef<HTMLDivElement | null>(null);
-  const [trackWidthPx, setTrackWidthPx] = useState(0);
+  const rowRef = useRef<HTMLDivElement | null>(null);
+  const containerRef = useRef<HTMLDivElement | null>(null);
+  const [rowWidthPx, setRowWidthPx] = useState(0);
+  const [containerWidthPx, setContainerWidthPx] = useState(0);
   const [paused, setPaused] = useState(false);
 
   // Backfill on mount.
@@ -63,23 +68,20 @@ export function NewsTicker() {
     return () => window.removeEventListener('cockpit:ticker-item', onItem);
   }, []);
 
-  // Measure rendered single-loop width so we can derive a constant
-  // px/s scroll duration. We measure the FIRST half of the doubled
-  // track (its scrollWidth ÷ 2 would also work, but reading children
-  // directly is clearer).
-  const updateWidth = useCallback(() => {
-    const track = trackRef.current;
-    if (!track) return;
-    const first = track.firstElementChild as HTMLElement | null;
-    if (!first) return;
-    setTrackWidthPx(first.scrollWidth);
+  // Measure single-row width and container width. We need both so we
+  // can decide how many copies of the row to render — enough to always
+  // overflow the container, so the wrap is invisible.
+  const measure = useCallback(() => {
+    if (rowRef.current) setRowWidthPx(rowRef.current.scrollWidth);
+    if (containerRef.current) setContainerWidthPx(containerRef.current.clientWidth);
   }, []);
   useEffect(() => {
-    updateWidth();
-    const ro = new ResizeObserver(updateWidth);
-    if (trackRef.current) ro.observe(trackRef.current);
+    measure();
+    const ro = new ResizeObserver(measure);
+    if (rowRef.current) ro.observe(rowRef.current);
+    if (containerRef.current) ro.observe(containerRef.current);
     return () => ro.disconnect();
-  }, [items, updateWidth]);
+  }, [items, measure]);
 
   const onClickItem = useCallback(
     (item: TickerItem) => {
@@ -96,64 +98,82 @@ export function NewsTicker() {
     [items],
   );
 
-  if (items.length === 0) return null;
+  // Number of row copies — at least 2 (so wrap has something to reveal),
+  // and enough that copies × rowWidth > container + rowWidth (so there
+  // is always content past both edges).
+  const copies = useMemo(() => {
+    if (rowWidthPx <= 0) return 2;
+    const needed = Math.ceil((containerWidthPx + rowWidthPx) / rowWidthPx) + 1;
+    return Math.max(2, needed);
+  }, [rowWidthPx, containerWidthPx]);
 
-  const durationS = trackWidthPx > 0 ? trackWidthPx / SCROLL_SPEED_PX_S : 30;
+  // The motion value drives translateX. Each frame we advance it by
+  // (speed × dt) and wrap into [-rowWidth, 0]. Wrapping at -rowWidth
+  // (one full row) means the second copy slides into the first copy's
+  // exact position — seamless loop, regardless of how many copies we
+  // render.
+  const baseX = useMotionValue(0);
+  const x = useTransform(baseX, (v) => `${rowWidthPx > 0 ? wrap(-rowWidthPx, 0, v) : 0}px`);
+
+  useAnimationFrame((_t, delta) => {
+    if (paused || rowWidthPx <= 0) return;
+    // delta is ms; convert to seconds and advance left (negative).
+    baseX.set(baseX.get() - (SCROLL_SPEED_PX_S * delta) / 1000);
+  });
+
+  if (items.length === 0) return null;
 
   return (
     <div
+      ref={containerRef}
       data-audit-id="news-ticker"
       onMouseEnter={() => setPaused(true)}
       onMouseLeave={() => setPaused(false)}
-      className="pointer-events-auto absolute inset-x-0 bottom-0 z-30 h-[30px] overflow-hidden border-t border-border/60 bg-panel/70 backdrop-blur-md"
+      className="pointer-events-auto absolute inset-x-0 bottom-0 z-30 h-[30px] w-full overflow-hidden border-t border-border/60 bg-panel/70 backdrop-blur-md"
     >
       {/* Eyebrow tag at the left — sticky over the scroll. */}
       <div className="absolute left-0 top-0 z-10 flex h-full items-center gap-1 border-r border-border/60 bg-panel/85 px-3 font-display text-[10px] uppercase tracking-[0.32em] text-muted backdrop-blur-md">
         <span className="inline-block h-1.5 w-1.5 rounded-full bg-accent shadow-[0_0_4px_rgba(125,211,252,0.7)] animate-rec-pulse" />
         feed
       </div>
-      {/* Doubled track for seamless loop. The whole row translates by
-          -50% — at the loop point the second copy is exactly where the
-          first started, so no jump. */}
-      <div
-        ref={trackRef}
+      {/* Translating track. We render `copies` repeats of the same row
+          end-to-end; the motion value wraps every rowWidth so the loop
+          is invisible. */}
+      <motion.div
         className="flex h-full whitespace-nowrap pl-[88px] will-change-transform"
-        style={{
-          animation: `ticker-scroll ${durationS.toFixed(2)}s linear infinite`,
-          animationPlayState: paused ? 'paused' : 'running',
-        }}
+        style={{ x }}
       >
-        <Row keyed={keyed} onClickItem={onClickItem} />
-        <Row keyed={keyed} onClickItem={onClickItem} aria-hidden />
-      </div>
+        {/* First copy is the measured one — its width sets the wrap
+            distance. Remaining copies are aria-hidden duplicates. */}
+        <Row ref={rowRef} keyed={keyed} onClickItem={onClickItem} />
+        {Array.from({ length: copies - 1 }).map((_, i) => (
+          <Row key={`dup-${i}`} keyed={keyed} onClickItem={onClickItem} aria-hidden />
+        ))}
+      </motion.div>
       {/* Right-edge fade so items don't punch the viewport edge. */}
       <div className="pointer-events-none absolute inset-y-0 right-0 w-12 bg-gradient-to-l from-panel/70 to-transparent" />
-      <style>{`
-        @keyframes ticker-scroll {
-          from { transform: translateX(0); }
-          to   { transform: translateX(-50%); }
-        }
-      `}</style>
     </div>
   );
 }
 
-function Row({
+const Row = ({
+  ref,
   keyed,
   onClickItem,
   ...rest
 }: {
+  ref?: React.Ref<HTMLDivElement>;
   keyed: { key: string; item: TickerItem }[];
   onClickItem: (item: TickerItem) => void;
-} & React.HTMLAttributes<HTMLDivElement>) {
+} & React.HTMLAttributes<HTMLDivElement>) => {
   return (
-    <div className="flex h-full items-center" {...rest}>
+    <div ref={ref} className="flex h-full shrink-0 items-center" {...rest}>
       {keyed.map(({ key, item }) => (
         <TickerEntry key={key} item={item} onClick={() => onClickItem(item)} />
       ))}
     </div>
   );
-}
+};
 
 const KIND_GLYPH: Record<TickerItem['kind'], string> = {
   error: '▲',
