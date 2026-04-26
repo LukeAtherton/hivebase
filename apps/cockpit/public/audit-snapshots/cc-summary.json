@@ -1,0 +1,22 @@
+{
+  "nodeId": "cc-summary",
+  "capturedAt": "2026-04-26T13:45:18.860Z",
+  "cockpitUrl": "http://localhost:4400/",
+  "viewport": {
+    "width": 1440,
+    "height": 900
+  },
+  "highlights": [
+    {
+      "selector": "[data-audit-id=\"summary-line\"]",
+      "label": "always-visible ribbon",
+      "callout": "bottom",
+      "rect": {
+        "x": 0,
+        "y": 0,
+        "width": 1440,
+        "height": 86.5
+      }
+    }
+  ]
+}

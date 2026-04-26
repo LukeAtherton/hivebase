@@ -1,4 +1,4 @@
-import type { Severity } from '@swarm/core';
+import type { Severity } from '@kybernos/core';
 
 // Default action a cooldown applies on expiry.
 // `info` and `advisory` get a non-blocking default; `required` has no default —

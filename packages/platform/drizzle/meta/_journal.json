@@ -29,6 +29,34 @@
       "when": 1777151325033,
       "tag": "0003_worried_penance",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1777209608932,
+      "tag": "0004_eager_hawkeye",
+      "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1777210658762,
+      "tag": "0005_chilly_warhawk",
+      "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1777210676318,
+      "tag": "0006_stale_rawhide_kid",
+      "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1777215193874,
+      "tag": "0007_flowery_firelord",
+      "breakpoints": true
     }
   ]
 }

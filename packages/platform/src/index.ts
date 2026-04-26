@@ -9,4 +9,6 @@ export {
   cockpitEvents,
   cockpitDecisions,
   cockpitDecisionLedger,
+  cockpitAutonomyPolicies,
+  cockpitScopeArtifacts,
 } from './schema/index';

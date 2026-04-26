@@ -1,8 +1,8 @@
 import type { FastifyInstance } from 'fastify';
 import { eq } from 'drizzle-orm';
-import { generateCockpitDecisionId, generateCockpitEventId } from '@swarm/ids';
-import { classify, type NormalisedEvent, type NormalisedEventType } from '@swarm/core';
-import { getCockpitDb, cockpitDecisions, cockpitSessions } from '@swarm/platform';
+import { generateCockpitDecisionId, generateCockpitEventId } from '@kybernos/ids';
+import { classify, type NormalisedEvent, type NormalisedEventType } from '@kybernos/core';
+import { getCockpitDb, cockpitDecisions, cockpitSessions } from '@kybernos/platform';
 import { eventBus } from '../lib/event-bus.js';
 import { scheduleCooldown } from '../lib/cooldown-scheduler.js';
 import { cooldownMsFor, defaultChoiceFor } from '../lib/decision-defaults.js';

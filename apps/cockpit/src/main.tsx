@@ -2,6 +2,7 @@ import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 import { MutationCache, QueryCache, QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { App } from './App';
+import { AuditCanvas } from './audit/AuditCanvas';
 import { useCockpitStore } from './store/cockpitStore';
 import './index.css';
 
@@ -27,10 +28,15 @@ const queryClient = new QueryClient({
   }),
 });
 
+// Tiny path-based router: avoids pulling in TanStack Router for one secondary
+// route. The cockpit is the default surface; /audit-canvas renders the UX-audit
+// graph (no API queries, no live cockpit chrome).
+const route = window.location.pathname.startsWith('/audit-canvas') ? 'audit' : 'app';
+
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
     <QueryClientProvider client={queryClient}>
-      <App />
+      {route === 'audit' ? <AuditCanvas /> : <App />}
     </QueryClientProvider>
   </StrictMode>,
 );

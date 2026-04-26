@@ -1,8 +1,8 @@
 import type { FastifyInstance } from 'fastify';
 import { z } from 'zod';
 import { eq } from 'drizzle-orm';
-import { getCockpitDb, cockpitProjects } from '@swarm/platform';
-import { generateCockpitProjectId } from '@swarm/ids';
+import { getCockpitDb, cockpitProjects } from '@kybernos/platform';
+import { generateCockpitProjectId } from '@kybernos/ids';
 
 const CreateProjectBody = z.object({
   name: z.string().min(1),

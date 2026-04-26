@@ -1,0 +1,22 @@
+{
+  "nodeId": "scope-spawn-today",
+  "capturedAt": "2026-04-26T13:45:21.433Z",
+  "cockpitUrl": "http://localhost:4400/",
+  "viewport": {
+    "width": 1440,
+    "height": 900
+  },
+  "highlights": [
+    {
+      "selector": "[data-audit-id=\"spawn-button\"]",
+      "label": "one button — opens a textarea modal",
+      "callout": "right",
+      "rect": {
+        "x": 12,
+        "y": 98.5,
+        "width": 88.046875,
+        "height": 26
+      }
+    }
+  ]
+}

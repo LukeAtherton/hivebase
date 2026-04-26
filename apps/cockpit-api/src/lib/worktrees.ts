@@ -4,8 +4,8 @@ import { mkdir, rm } from 'node:fs/promises';
 import { dirname, join, resolve } from 'node:path';
 import { homedir } from 'node:os';
 import { eq } from 'drizzle-orm';
-import { getCockpitDb, cockpitWorkspaces } from '@swarm/platform';
-import { generateCockpitWorkspaceId } from '@swarm/ids';
+import { getCockpitDb, cockpitWorkspaces } from '@kybernos/platform';
+import { generateCockpitWorkspaceId } from '@kybernos/ids';
 
 const exec = promisify(execFile);
 

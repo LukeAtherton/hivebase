@@ -4,22 +4,15 @@ import clsx from 'clsx';
 import { api, type DecisionRow, type EventRow, type SessionRow } from '../lib/api';
 import { useCockpitStore } from '../store/cockpitStore';
 import { useCooldown } from '../lib/useCooldown';
-
-const STATE_BADGE: Record<string, string> = {
-  queued: 'text-muted',
-  orienting: 'text-accent',
-  implementing: 'text-ok',
-  validating: 'text-ok',
-  blocked: 'text-alarm',
-  'needs-decision': 'text-warn',
-  'ready-for-review': 'text-accent',
-  stopped: 'text-muted',
-};
+import { PolicyMatrix } from './PolicyMatrix';
 
 export function SessionDetail({ session }: { session: SessionRow }) {
   const qc = useQueryClient();
   const setSelected = useCockpitStore((s) => s.setSelected);
+  const redirectingDecisionId = useCockpitStore((s) => s.redirectingDecisionId);
+  const cancelRedirect = useCockpitStore((s) => s.cancelRedirect);
   const [reply, setReply] = useState('');
+  const replyRef = useRef<HTMLTextAreaElement | null>(null);
 
   const eventsQ = useQuery({
     queryKey: ['session-events', session.cockpitSessionId],
@@ -39,10 +32,49 @@ export function SessionDetail({ session }: { session: SessionRow }) {
     return list.filter((d) => d.cockpitSessionId === session.cockpitSessionId);
   }, [decisionsQ.data, session.cockpitSessionId]);
 
+  // Redirect mode: only when the redirecting decision belongs to THIS
+  // session (clicking redirect on a card from a different agent should
+  // open that agent's panel, which then shows the band).
+  const redirectingDecision = useMemo(() => {
+    if (!redirectingDecisionId) return null;
+    return openDecisions.find((d) => d.cockpitDecisionId === redirectingDecisionId) ?? null;
+  }, [openDecisions, redirectingDecisionId]);
+  const inRedirect = !!redirectingDecision;
+  const redirectSeverity = redirectingDecision?.severity ?? null;
+
+  // Focus the textarea when entering redirect mode so the operator
+  // doesn't have to click again. Also clears any draft from a prior
+  // normal-message session (different intent).
+  useEffect(() => {
+    if (inRedirect) {
+      setReply('');
+      replyRef.current?.focus();
+    }
+  }, [inRedirect]);
+
+  // Listen for the keymap's 'l' command — focus our textarea when the
+  // operator steps into the detail panel from the queue.
+  useEffect(() => {
+    function onFocusDetail() {
+      replyRef.current?.focus();
+    }
+    window.addEventListener('cockpit:focus-detail', onFocusDetail);
+    return () => window.removeEventListener('cockpit:focus-detail', onFocusDetail);
+  }, []);
+
   const sendMsg = useMutation({
     mutationFn: (text: string) => api.sendSessionMessage(session.cockpitSessionId, text),
     onSuccess: () => {
       setReply('');
+      qc.invalidateQueries({ queryKey: ['session-events', session.cockpitSessionId] });
+    },
+  });
+  const sendRedirect = useMutation({
+    mutationFn: ({ id, text }: { id: string; text: string }) => api.reply(id, 'me', text),
+    onSuccess: () => {
+      setReply('');
+      cancelRedirect();
+      qc.invalidateQueries({ queryKey: ['decisions'] });
       qc.invalidateQueries({ queryKey: ['session-events', session.cockpitSessionId] });
     },
   });
@@ -51,14 +83,16 @@ export function SessionDetail({ session }: { session: SessionRow }) {
     onSuccess: () => qc.invalidateQueries({ queryKey: ['sessions'] }),
   });
 
-  // Esc to close.
+  // Esc to cancel redirect (if in redirect mode) or close panel.
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') setSelected(null);
+      if (e.key !== 'Escape') return;
+      if (inRedirect) cancelRedirect();
+      else setSelected(null);
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [setSelected]);
+  }, [setSelected, inRedirect, cancelRedirect]);
 
   // Reverse to chronological for the timeline (API returns newest-first),
   // then collapse runs of consecutive text.delta from the same stream into
@@ -107,29 +141,71 @@ export function SessionDetail({ session }: { session: SessionRow }) {
 
   const live = !session.endedAt;
 
+  // Tab-trap: Tab/Shift+Tab inside the panel cycles its own focusable
+  // elements rather than escaping to the queue cards. We re-query
+  // each press so dynamically-mounted controls (redirect band ✕,
+  // disabled send button) are picked up in the right order.
+  const panelRef = useRef<HTMLDivElement | null>(null);
+  const onPanelKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key !== 'Tab') return;
+    const root = panelRef.current;
+    if (!root) return;
+    const tabbable = Array.from(
+      root.querySelectorAll<HTMLElement>(
+        'button:not([disabled]), [href], input:not([disabled]), textarea:not([disabled]), select:not([disabled]), [tabindex]:not([tabindex="-1"])',
+      ),
+    ).filter((el) => !el.hasAttribute('aria-hidden') && el.offsetParent !== null);
+    if (tabbable.length === 0) return;
+    const first = tabbable[0];
+    const last = tabbable[tabbable.length - 1];
+    const active = document.activeElement as HTMLElement | null;
+    if (e.shiftKey) {
+      if (active === first || !root.contains(active)) {
+        e.preventDefault();
+        last.focus();
+      }
+    } else if (active === last) {
+      e.preventDefault();
+      first.focus();
+    }
+  };
+
   return (
-    <div className="flex h-full flex-col overflow-hidden border-l border-border bg-panel/80">
+    <div
+      ref={panelRef}
+      onKeyDown={onPanelKeyDown}
+      data-audit-id="session-detail"
+      className="flex h-full flex-col overflow-hidden border-l border-border bg-panel/80"
+    >
       {/* Header */}
-      <div className="flex shrink-0 items-start justify-between gap-3 border-b border-border px-4 py-3">
+      <div className="flex shrink-0 items-start justify-between gap-3 border-b border-border bg-gradient-to-b from-accent/[0.04] to-transparent px-4 py-3">
         <div className="min-w-0 flex-1">
-          <div className="flex items-baseline gap-2">
-            <span className="truncate text-sm font-medium text-text">
+          <div className="font-mono text-[9px] uppercase tracking-[0.4em] text-accent/80">
+            ▸ agent
+          </div>
+          <div className="mt-1 flex items-baseline gap-2">
+            <span className="truncate font-display text-[18px] uppercase leading-none tracking-[0.12em] text-text">
               {session.agentLabel ?? session.cockpitSessionId.slice(-8)}
             </span>
             <span
               className={clsx(
-                'rounded px-1.5 py-0.5 text-[10px] uppercase tracking-wide',
-                STATE_BADGE[session.state] ?? 'text-muted',
+                'rounded-sm border px-1.5 py-0.5 font-mono text-[9px] uppercase tracking-[0.25em]',
+                session.state === 'needs-decision' || session.state === 'blocked'
+                  ? 'border-alarm/50 bg-alarm/10 text-alarm'
+                  : session.state === 'implementing' || session.state === 'validating'
+                    ? 'border-ok/50 bg-ok/10 text-ok'
+                    : session.state === 'orienting' || session.state === 'ready-for-review'
+                      ? 'border-accent/50 bg-accent/10 text-accent'
+                      : 'border-border bg-ink/40 text-muted',
               )}
-              style={{ background: 'currentColor', color: 'transparent' }}
             >
-              <span className={STATE_BADGE[session.state] ?? 'text-muted'}>{session.state}</span>
+              {session.state}
             </span>
           </div>
-          <div className="mt-0.5 truncate font-mono text-[10px] text-muted">
-            {session.cockpitSessionId}
+          <div className="mt-1 truncate font-mono text-[10px] text-muted">
+            ID · {session.cockpitSessionId}
           </div>
-          <div className="mt-1 line-clamp-2 text-xs text-muted">{session.task}</div>
+          <div className="mt-1.5 line-clamp-2 text-xs text-muted">{session.task}</div>
         </div>
         <div className="flex shrink-0 items-start gap-1.5">
           {live && (
@@ -179,6 +255,15 @@ export function SessionDetail({ session }: { session: SessionRow }) {
           </span>
         )}
       </div>
+
+      {/* Autonomy policy — collapsed-by-default detail block. Read-only
+          for now (step 1d of Group A); editable in step 4. */}
+      <details className="shrink-0">
+        <summary className="cursor-pointer border-b border-border bg-ink/30 px-4 py-1.5 font-mono text-[10px] uppercase tracking-[0.25em] text-muted hover:text-text">
+          autonomy policy ▾
+        </summary>
+        <PolicyMatrix cockpitAgentId={session.cockpitAgentId} />
+      </details>
 
       {/* Plan */}
       {session.currentTodos && session.currentTodos.length > 0 && (
@@ -239,37 +324,115 @@ export function SessionDetail({ session }: { session: SessionRow }) {
         )}
       </div>
 
-      {/* Reply input — only when session is live */}
+      {/* Reply input — only when session is live. Switches into redirect
+          mode when this session has the active redirect target: severity-
+          tinted band, severity-bordered textarea, "▸ SEND REDIRECT"
+          button. Submits to api.reply rather than sendSessionMessage. */}
       {live ? (
-        <div className="shrink-0 border-t border-border bg-ink/40 px-3 py-2">
-          <div className="flex items-end gap-2">
-            <textarea
-              rows={2}
-              value={reply}
-              onChange={(e) => setReply(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter' && (e.metaKey || e.ctrlKey) && reply.trim()) {
-                  e.preventDefault();
-                  sendMsg.mutate(reply.trim());
-                }
-              }}
-              placeholder="message the agent — ⌘↵ to send"
-              className="flex-1 resize-none rounded border border-border bg-ink px-2 py-1 font-mono text-[11px] text-text"
-            />
-            <button
-              disabled={!reply.trim() || sendMsg.isPending}
-              onClick={() => sendMsg.mutate(reply.trim())}
-              className="rounded border border-accent/60 bg-accent/10 px-3 py-1.5 text-xs text-accent disabled:opacity-50"
+        <div className="shrink-0 border-t border-border bg-ink/40">
+          {inRedirect && redirectingDecision && (
+            <div
+              className={clsx(
+                'flex items-center gap-2 border-b px-3 py-1.5',
+                redirectSeverity === 'required'
+                  ? 'border-alarm/50 bg-alarm/10 text-alarm'
+                  : 'border-warn/50 bg-warn/10 text-warn',
+              )}
             >
-              {sendMsg.isPending ? 'sending…' : 'send'}
-            </button>
-          </div>
-          {sendMsg.error && (
-            <div className="mt-1 text-[10px] text-alarm">{(sendMsg.error as Error).message}</div>
+              <span aria-hidden className="text-base leading-none">
+                ▸
+              </span>
+              <span className="font-display text-[11px] uppercase tracking-[0.35em] drop-shadow-[0_0_4px_currentColor]">
+                redirecting
+              </span>
+              <span className="truncate font-mono text-[10px] uppercase tracking-[0.18em] text-text/80">
+                {redirectingDecision.question}
+              </span>
+              <button
+                onClick={cancelRedirect}
+                className="ml-auto rounded border border-current/40 px-1.5 py-0.5 font-mono text-[9px] uppercase tracking-widest hover:bg-current/10"
+                title="Cancel redirect (Esc)"
+              >
+                ✕ cancel
+              </button>
+            </div>
           )}
+          <div className="px-3 py-2">
+            <div className="flex items-end gap-2">
+              <textarea
+                ref={replyRef}
+                rows={2}
+                value={reply}
+                onChange={(e) => setReply(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' && (e.metaKey || e.ctrlKey) && reply.trim()) {
+                    e.preventDefault();
+                    if (inRedirect && redirectingDecision) {
+                      sendRedirect.mutate({
+                        id: redirectingDecision.cockpitDecisionId,
+                        text: reply.trim(),
+                      });
+                    } else {
+                      sendMsg.mutate(reply.trim());
+                    }
+                  }
+                }}
+                placeholder={
+                  inRedirect
+                    ? 'redirect — sent to the agent as the reason · ⌘↵ to send · esc to cancel'
+                    : 'message the agent — ⌘↵ to send'
+                }
+                className={clsx(
+                  'flex-1 resize-none rounded border bg-ink px-2 py-1 font-mono text-[11px] text-text focus:outline-none',
+                  inRedirect && redirectSeverity === 'required'
+                    ? 'border-alarm/60 focus:border-alarm'
+                    : inRedirect && redirectSeverity === 'advisory'
+                      ? 'border-warn/60 focus:border-warn'
+                      : 'border-border focus:border-accent/60',
+                )}
+              />
+              <button
+                disabled={
+                  !reply.trim() ||
+                  (inRedirect ? sendRedirect.isPending : sendMsg.isPending)
+                }
+                onClick={() => {
+                  if (inRedirect && redirectingDecision) {
+                    sendRedirect.mutate({
+                      id: redirectingDecision.cockpitDecisionId,
+                      text: reply.trim(),
+                    });
+                  } else {
+                    sendMsg.mutate(reply.trim());
+                  }
+                }}
+                className={clsx(
+                  'rounded border-2 px-3 py-1.5 font-display text-[11px] uppercase tracking-[0.25em] transition-colors disabled:opacity-50',
+                  inRedirect && redirectSeverity === 'required'
+                    ? 'border-alarm bg-alarm/15 text-alarm hover:bg-alarm/30 shadow-[0_0_10px_rgba(239,68,68,0.45)]'
+                    : inRedirect && redirectSeverity === 'advisory'
+                      ? 'border-warn bg-warn/15 text-warn hover:bg-warn/30 shadow-[0_0_10px_rgba(245,158,11,0.45)]'
+                      : 'border-accent/60 bg-accent/10 text-accent hover:bg-accent/25',
+                )}
+              >
+                {inRedirect
+                  ? sendRedirect.isPending
+                    ? 'sending…'
+                    : '▸ send redirect'
+                  : sendMsg.isPending
+                    ? 'sending…'
+                    : 'send'}
+              </button>
+            </div>
+            {(sendMsg.error || sendRedirect.error) && (
+              <div className="mt-1 font-mono text-[10px] text-alarm">
+                {((sendMsg.error || sendRedirect.error) as Error).message}
+              </div>
+            )}
+          </div>
         </div>
       ) : (
-        <div className="shrink-0 border-t border-border bg-ink/40 px-4 py-2 text-center text-[10px] uppercase tracking-wide text-muted">
+        <div className="shrink-0 border-t border-border bg-ink/40 px-4 py-2 text-center font-mono text-[10px] uppercase tracking-[0.3em] text-muted">
           session ended
         </div>
       )}
@@ -443,10 +606,6 @@ function DecisionContextBlock({
     mutationFn: () => api.approve(d.cockpitDecisionId, 'me'),
     onSuccess: () => qc.invalidateQueries({ queryKey: ['decisions'] }),
   });
-  const block = useMutation({
-    mutationFn: () => api.block(d.cockpitDecisionId, 'me'),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['decisions'] }),
-  });
   const [replyOpen, setReplyOpen] = useState(false);
   const [replyText, setReplyText] = useState('');
   const reply = useMutation({
@@ -525,24 +684,12 @@ function DecisionContextBlock({
             onClick={() => setReplyOpen((v) => !v)}
             className={clsx(
               'rounded border-2 px-3 py-1 font-mono text-[10px] uppercase tracking-[0.2em] transition-colors',
-              replyOpen || d.defaultChoice === 'reply'
+              replyOpen || d.defaultChoice === 'reply' || d.defaultChoice === 'block'
                 ? 'border-accent bg-accent/35 text-accent shadow-[0_0_8px_rgba(125,211,252,0.45)]'
                 : 'border-accent/60 bg-accent/10 text-accent hover:bg-accent/25',
             )}
           >
-            reply
-          </button>
-          <button
-            onClick={() => block.mutate()}
-            disabled={block.isPending}
-            className={clsx(
-              'rounded border-2 px-3 py-1 font-mono text-[10px] uppercase tracking-[0.2em] transition-colors disabled:opacity-50',
-              d.defaultChoice === 'block'
-                ? 'border-alarm bg-alarm/35 text-alarm shadow-[0_0_8px_rgba(239,68,68,0.45)]'
-                : 'border-alarm/60 bg-alarm/10 text-alarm hover:bg-alarm/25',
-            )}
-          >
-            block
+            redirect
           </button>
         </div>
       </div>
@@ -563,7 +710,7 @@ function DecisionContextBlock({
                 setReplyText('');
               }
             }}
-            placeholder="reply — sent to the agent as the deny reason"
+            placeholder="redirect — sent to the agent as the reason"
             className="w-full rounded border border-border bg-ink px-2 py-1 font-mono text-[11px] text-text"
           />
           <div className="flex items-center justify-end gap-2 text-[10px] text-muted">
@@ -573,7 +720,7 @@ function DecisionContextBlock({
               onClick={() => reply.mutate(replyText.trim())}
               className="rounded border border-accent/60 bg-accent/10 px-2 py-1 text-xs text-accent disabled:opacity-50"
             >
-              {reply.isPending ? 'sending…' : 'send reply'}
+              {reply.isPending ? 'sending…' : 'send redirect'}
             </button>
           </div>
         </div>

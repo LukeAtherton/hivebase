@@ -15,9 +15,9 @@ import type {
   PermissionResult,
   SDKMessage,
 } from '@anthropic-ai/claude-agent-sdk';
-import { generateCockpitDecisionId } from '@swarm/ids';
+import { generateCockpitDecisionId } from '@kybernos/ids';
 import { eq } from 'drizzle-orm';
-import { cockpitDecisions, cockpitSessions, getCockpitDb } from '@swarm/platform';
+import { cockpitDecisions, cockpitSessions, getCockpitDb } from '@kybernos/platform';
 import {
   classify,
   type AgentAdapter,
@@ -27,7 +27,7 @@ import {
   type NormalisedEvent,
   type PlanItem,
   type SpawnSpec,
-} from '@swarm/core';
+} from '@kybernos/core';
 import { eventBus } from '../../lib/event-bus.js';
 import { scheduleCooldown } from '../../lib/cooldown-scheduler.js';
 import { cooldownMsFor, defaultChoiceFor } from '../../lib/decision-defaults.js';

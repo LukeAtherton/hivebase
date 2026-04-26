@@ -14,6 +14,13 @@ export const cockpitDecisions = pgTable(
     severity: text('severity').notNull(), // Severity
     status: text('status').notNull().default('open'), // DecisionStatus
     question: text('question').notNull(),
+    // Card v2 fields. Card classifier populates these so the operator
+    // can decide on the card without clicking through to SessionDetail.
+    detail: text('detail'),
+    evidenceLines: jsonb('evidence_lines').$type<string[]>(),
+    rejectOptions: jsonb('reject_options').$type<
+      Array<{ id: string; label: string; reply: string }>
+    >(),
     toolName: text('tool_name'),
     command: text('command'),
     filePath: text('file_path'),

@@ -1,6 +1,6 @@
 # Cockpit iteration log
 
-3-hour autonomous iteration toward the Swarm vision (`~/Projects/hivebase/README.md`)
+3-hour autonomous iteration toward the Swarm vision (`~/Projects/kybernos/VISION.md`)
 and the cockpit plan (`COCKPIT_PLAN.md`). Each cycle: vision recall → expose
 gap with the multi-product fleet (tally, pulse, atlas) → pick most-jarring
 issue → fix → typecheck/build → journal → commit if coherent.

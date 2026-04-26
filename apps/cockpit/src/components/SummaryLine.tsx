@@ -14,7 +14,22 @@ import { useCockpitStore } from '../store/cockpitStore';
 
 const DECISIONS_GAUGE_MAX = 12; // beyond which the gauge saturates
 
-export function SummaryLine({
+// Kept as a no-op export so call sites that still import it don't break
+// during the cleanup pass. The annunciator now lives inside <MapHUD/>
+// as a slide-down tail.
+export function SummaryLine(_props: { decisions: DecisionRow[]; sessions: SessionRow[] }) {
+  return null;
+}
+
+// MapHUD: floating glass panel of fleet instruments. Lives as an
+// absolute-positioned overlay at the top of the canvas (matches
+// swarm-assembler's GraphToolbar pattern).
+//
+// When something demands attention, the HUD grows a slide-down tail
+// rather than a separate top-of-app banner. The tail is the only place
+// the annunciator lives — peripheral attention grab stays where the
+// operator's eye already is.
+export function MapHUD({
   decisions,
   sessions,
 }: {
@@ -22,11 +37,12 @@ export function SummaryLine({
   sessions: SessionRow[];
 }) {
   const recentEvents = useCockpitStore((s) => s.recentEventTimes);
+  const setKeymapOpen = useCockpitStore((s) => s.setKeymapOpen);
+  const setSelected = useCockpitStore((s) => s.setSelected);
 
   const open = decisions.filter((d) => d.status === 'open');
   const required = open.filter((d) => d.severity === 'required').length;
   const advisory = open.filter((d) => d.severity === 'advisory').length;
-  const oldestMs = open.length ? Math.min(...open.map((d) => Date.parse(d.createdAt))) : null;
 
   const live = sessions.filter((s) => !['stopped', 'merged'].includes(s.state)).length;
   const blocked = sessions.filter(
@@ -34,50 +50,70 @@ export function SummaryLine({
   ).length;
   const total = sessions.filter((s) => s.state !== 'merged').length;
 
-  // Annunciator: name the worst thing right now, in the cockpit-callout style.
-  const annunciator = useMemo(() => {
-    const top =
-      open
-        .slice()
-        .sort((a, b) => Date.parse(a.createdAt) - Date.parse(b.createdAt))
-        .find((d) => d.severity === 'required') ?? open.find((d) => d.severity === 'advisory');
-    if (!top) return null;
-    const label = (() => {
-      const session = sessions.find((s) => s.cockpitSessionId === top.cockpitSessionId);
-      const project = session?.projectName ?? '';
-      const agent = session?.agentLabel ?? top.cockpitSessionId.slice(-6);
-      return `${project ? project + '/' : ''}${agent}`.toUpperCase();
-    })();
-    return { kind: top.severity, text: `${top.triggerType.replace(/-/g, ' ')} · ${label}` };
-  }, [open, sessions]);
+  // Worst-open decision drives the slide-down annunciator. Required
+  // before advisory; oldest first within a severity.
+  const worst = useMemo(() => {
+    const byAge = open.slice().sort((a, b) => Date.parse(a.createdAt) - Date.parse(b.createdAt));
+    return byAge.find((d) => d.severity === 'required') ?? byAge.find((d) => d.severity === 'advisory') ?? null;
+  }, [open]);
+  const annunciatorKind: 'required' | 'advisory' | null = worst?.severity === 'required'
+    ? 'required'
+    : worst?.severity === 'advisory'
+      ? 'advisory'
+      : null;
 
   return (
-    <div className="shrink-0 select-none border-b border-border bg-panel">
-      {/* Annunciator — only rendered when something demands attention */}
-      {annunciator && (
-        <div
-          className={clsx(
-            'flex items-center gap-2 border-b px-4 py-1 font-mono text-[11px] uppercase tracking-[0.2em]',
-            annunciator.kind === 'required'
-              ? 'border-alarm/60 bg-alarm/15 text-alarm animate-caution-pulse'
-              : 'border-warn/50 bg-warn/10 text-warn',
-          )}
-        >
-          <span aria-hidden className="text-base leading-none">
-            ▲
-          </span>
-          <span>{annunciator.kind === 'required' ? 'DECISION REQUIRED' : 'ADVISORY'}</span>
-          <span className="text-text/80">{annunciator.text}</span>
-          {oldestMs && <span className="ml-auto text-text/60">oldest {humanAge(oldestMs)}</span>}
-        </div>
-      )}
-      {/* Instrument strip */}
-      <div className="grid grid-cols-[auto_auto_auto_1fr_auto] items-center gap-6 px-4 py-2">
+    <div
+      data-audit-id="map-hud"
+      className="pointer-events-auto flex select-none flex-col overflow-hidden rounded-xl border border-border/60 bg-panel/70 shadow-[0_4px_24px_rgba(0,0,0,0.4)] backdrop-blur-md"
+    >
+      {/* Instrument row — always visible. */}
+      <div className="flex items-center gap-8 whitespace-nowrap px-5 py-2">
         <DecisionGauge open={open.length} required={required} advisory={advisory} />
         <FleetBar live={live} blocked={blocked} total={total} />
         <BurnReadout sessions={sessions} />
         <EventsSparkline times={recentEvents} />
         <FleetState blocked={blocked} live={live} />
+        <button
+          onClick={() => setKeymapOpen(true)}
+          className="rounded border border-border bg-panel/80 px-2 py-1 text-[10px] text-muted hover:text-text"
+          title="Keyboard shortcuts (?)"
+        >
+          ?
+        </button>
+      </div>
+
+      {/* Annunciator tail — slides out below the instruments when
+          something demands attention. Pure CSS height/opacity transition
+          on the inner band; the outer container is overflow-hidden so
+          the panel itself appears to grow downward. */}
+      <div
+        data-audit-id="annunciator"
+        aria-hidden={annunciatorKind === null}
+        className={clsx(
+          'grid transition-[grid-template-rows,opacity] duration-300 ease-out',
+          annunciatorKind ? 'grid-rows-[1fr] opacity-100' : 'grid-rows-[0fr] opacity-0',
+        )}
+      >
+        <div className="overflow-hidden">
+          <button
+            type="button"
+            onClick={() => worst && setSelected(worst.cockpitSessionId)}
+            className={clsx(
+              'flex w-full items-center justify-center gap-3 border-t px-4 py-1.5 text-left transition-colors',
+              annunciatorKind === 'required'
+                ? 'border-alarm/60 bg-alarm/15 text-alarm hover:bg-alarm/25 animate-caution-pulse'
+                : 'border-warn/50 bg-warn/10 text-warn hover:bg-warn/20',
+            )}
+          >
+            <span aria-hidden className="text-base leading-none">
+              ▲
+            </span>
+            <span className="font-display text-[12px] uppercase tracking-[0.4em] drop-shadow-[0_0_6px_currentColor]">
+              {annunciatorKind === 'required' ? 'decision required' : 'advisory'}
+            </span>
+          </button>
+        </div>
       </div>
     </div>
   );
@@ -138,9 +174,9 @@ function DecisionGauge({
           </text>
         </svg>
       </div>
-      <div className="text-[9px] font-mono uppercase tracking-[0.2em] text-muted leading-tight">
+      <div className="font-display text-[10px] uppercase tracking-[0.3em] text-muted leading-tight">
         decisions
-        <div className="text-[10px] text-text/80 normal-case tracking-normal">
+        <div className="mt-0.5 font-mono text-[10px] text-text/80 normal-case tracking-normal">
           <span className={required ? 'text-alarm' : 'text-muted'}>{required} req</span>
           <span className="mx-1 text-border">·</span>
           <span className={advisory ? 'text-warn' : 'text-muted'}>{advisory} adv</span>
@@ -157,7 +193,7 @@ function FleetBar({ live, blocked, total }: { live: number; blocked: number; tot
   return (
     <div className="flex items-center gap-2">
       <div className="flex h-11 w-28 flex-col justify-center">
-        <div className="text-[9px] font-mono uppercase tracking-[0.2em] text-muted">fleet</div>
+        <div className="font-display text-[10px] uppercase tracking-[0.3em] text-muted">fleet</div>
         <div className="mt-0.5 flex h-2 overflow-hidden rounded-sm border border-border bg-ink">
           <div
             className="h-full bg-alarm transition-[flex] duration-300"
@@ -194,12 +230,12 @@ function BurnReadout({ sessions }: { sessions: SessionRow[] }) {
   return (
     <div className="flex items-center gap-2">
       <div className="flex h-11 flex-col justify-center">
-        <div className="text-[9px] font-mono uppercase tracking-[0.2em] text-muted">load</div>
-        <div className="mt-0.5 font-mono text-[15px] tracking-tight text-accent tabular-nums">
+        <div className="font-display text-[10px] uppercase tracking-[0.3em] text-muted">load</div>
+        <div className="mt-0.5 font-display text-[18px] leading-none tracking-[0.05em] text-accent tabular-nums">
           {live}
-          <span className="ml-0.5 text-[9px] text-muted">/{total}</span>
+          <span className="ml-0.5 font-mono text-[9px] text-muted">/{total}</span>
         </div>
-        <div className="text-[9px] font-mono text-muted">live · subscription</div>
+        <div className="font-mono text-[9px] uppercase tracking-[0.2em] text-muted">live · sub</div>
       </div>
     </div>
   );
@@ -235,7 +271,7 @@ function EventsSparkline({ times }: { times: number[] }) {
   return (
     <div className="flex h-11 flex-col justify-center">
       <div className="flex items-baseline gap-2">
-        <div className="text-[9px] font-mono uppercase tracking-[0.2em] text-muted">events</div>
+        <div className="font-display text-[10px] uppercase tracking-[0.3em] text-muted">events</div>
         <div className="font-mono text-[10px] text-text/80 tabular-nums">{eventsPerMin}/min</div>
       </div>
       <svg width={w} height={h} className="mt-0.5 overflow-visible">
@@ -256,22 +292,21 @@ function EventsSparkline({ times }: { times: number[] }) {
 }
 
 function FleetState({ blocked, live }: { blocked: number; live: number }) {
+  const base = 'font-display text-[12px] uppercase tracking-[0.35em]';
   if (blocked > 0) {
     return (
-      <span className="font-mono text-[11px] uppercase tracking-[0.25em] text-alarm">
-        FLEET BLOCKED
+      <span className={clsx(base, 'text-alarm drop-shadow-[0_0_6px_rgba(239,68,68,0.5)]')}>
+        fleet blocked
       </span>
     );
   }
   if (live === 0) {
-    return (
-      <span className="font-mono text-[11px] uppercase tracking-[0.25em] text-muted">
-        FLEET IDLE
-      </span>
-    );
+    return <span className={clsx(base, 'text-muted')}>fleet idle</span>;
   }
   return (
-    <span className="font-mono text-[11px] uppercase tracking-[0.25em] text-ok">FLEET OK</span>
+    <span className={clsx(base, 'text-ok drop-shadow-[0_0_6px_rgba(34,197,94,0.45)]')}>
+      fleet ok
+    </span>
   );
 }
 
@@ -285,12 +320,3 @@ function arcPath(cx: number, cy: number, r: number, a0: number, a1: number): str
   return `M ${x0.toFixed(2)} ${y0.toFixed(2)} A ${r} ${r} 0 ${largeArc} 1 ${x1.toFixed(2)} ${y1.toFixed(2)}`;
 }
 
-function humanAge(ms: number): string {
-  const dt = Date.now() - ms;
-  const m = Math.floor(dt / 60000);
-  if (m < 1) return 'just now';
-  if (m < 60) return `${m}m`;
-  const h = Math.floor(m / 60);
-  if (h < 24) return `${h}h`;
-  return `${Math.floor(h / 24)}d`;
-}

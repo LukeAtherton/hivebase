@@ -1,5 +1,5 @@
 {
-  "name": "@swarm/platform",
+  "name": "@kybernos/platform",
   "version": "0.1.0",
   "private": true,
   "type": "module",
@@ -13,11 +13,12 @@
     "build": "echo 'No build needed - running TypeScript directly with tsx'",
     "db:generate": "drizzle-kit generate",
     "db:migrate": "tsx src/migrate.ts",
+    "db:seed": "tsx src/seed-mock-states.ts",
     "db:studio": "drizzle-kit studio",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "@swarm/core": "workspace:*",
+    "@kybernos/core": "workspace:*",
     "drizzle-orm": "^0.31.0",
     "pg": "^8.13.1"
   },

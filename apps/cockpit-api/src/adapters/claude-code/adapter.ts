@@ -2,7 +2,7 @@ import { spawn, type ChildProcess } from 'node:child_process';
 import { writeFile, mkdir } from 'node:fs/promises';
 import { join } from 'node:path';
 import { eq } from 'drizzle-orm';
-import { getCockpitDb, cockpitSessions } from '@swarm/platform';
+import { getCockpitDb, cockpitSessions } from '@kybernos/platform';
 import type {
   AgentAdapter,
   AgentMessage,
@@ -11,7 +11,7 @@ import type {
   NormalisedEvent,
   PlanItem,
   SpawnSpec,
-} from '@swarm/core';
+} from '@kybernos/core';
 import { eventBus } from '../../lib/event-bus.js';
 import {
   SessionController,

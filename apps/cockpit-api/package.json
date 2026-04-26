@@ -1,5 +1,5 @@
 {
-  "name": "@swarm/cockpit-api",
+  "name": "@kybernos/cockpit-api",
   "version": "0.1.0",
   "private": true,
   "type": "module",
@@ -9,15 +9,17 @@
     "build": "echo 'Service runs with tsx — no build step'",
     "clean": "echo 'No dist to clean'",
     "typecheck": "tsc --noEmit",
-    "test": "vitest run"
+    "test": "vitest run",
+    "validate:autonomy": "tsx scripts/validate-autonomy.ts"
   },
   "dependencies": {
     "@anthropic-ai/claude-agent-sdk": "^0.1.47",
     "@fastify/cors": "^11.0.0",
+    "@fastify/multipart": "^10.0.0",
     "@fastify/websocket": "^11.0.0",
-    "@swarm/core": "workspace:*",
-    "@swarm/platform": "workspace:*",
-    "@swarm/ids": "workspace:*",
+    "@kybernos/core": "workspace:*",
+    "@kybernos/ids": "workspace:*",
+    "@kybernos/platform": "workspace:*",
     "dotenv": "^16.4.0",
     "drizzle-orm": "^0.31.0",
     "fastify": "^5.2.0",

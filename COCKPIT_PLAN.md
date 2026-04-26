@@ -3,7 +3,7 @@
 _Plan for adding a supervision cockpit to the hivescaler monorepo._
 
 Status: planning, 2026-04-25.
-Source vision doc: `~/Projects/hivebase/README.md` (Swarm — an Attention OS for coding agents).
+Source vision doc: `~/Projects/kybernos/VISION.md` (Swarm — an Attention OS for coding agents).
 
 ---
 
@@ -22,7 +22,7 @@ Canonical state elsewhere: code (git), conversations (Slack), tickets (Linear/Gi
 
 Considered three options:
 
-1. **Standalone repo** (originally `~/Projects/hivebase`) — best architectural purity (cockpit is a peer of all agent platforms, not a child of one), worst ergonomics (re-build auth, deploy pipeline, type-sharing).
+1. **Standalone repo** (this is what eventually happened — `~/Projects/kybernos`, originally codenamed `hivebase`) — best architectural purity (cockpit is a peer of all agent platforms, not a child of one), worst ergonomics (re-build auth, deploy pipeline, type-sharing).
 2. **Folded into `apps/dashboard`** — best ergonomics, worst conceptual scope (dashboard manages the platform; cockpit supervises live work — different jobs, different metrics).
 3. **New `apps/cockpit` + `apps/cockpit-api` inside hivescaler with strict adapter boundaries** ← chosen.
 
@@ -400,7 +400,7 @@ What to reuse from the visualiser project (`~/Projects/project-visualizer`):
 
 ## Reference: vision doc
 
-Full vision and research foundations in `~/Projects/hivebase/README.md`. Highlights:
+Full vision and research foundations in `~/Projects/kybernos/VISION.md`. Highlights:
 
 - **Practitioner reading**: Willison "parallel coding agents", Cherny "how I use Claude Code", Anthropic "multi-agent research system", Litt "code like a surgeon", Karpathy 2025, Vincent "Superpowers", AGDebugger (CHI 2025).
 - **Sober reading**: METR July 2025 RCT (19% slower / 20% faster-feeling), Cognition "Don't Build Multi-Agents", "Professional Software Developers Don't Vibe, They Control".
@@ -410,7 +410,7 @@ Full vision and research foundations in `~/Projects/hivebase/README.md`. Highlig
 
 ## Next session: where to pick up
 
-1. Read this doc + `~/Projects/hivebase/README.md` (the vision).
+1. Read this doc + `~/Projects/kybernos/VISION.md` (the vision).
 2. Decide naming (cockpit-specific app name) and migrations package location.
 3. Spike the Claude Code hook → reply round trip (30 minutes).
 4. Decide on Phase 0 eval vs. straight to Phase 1.

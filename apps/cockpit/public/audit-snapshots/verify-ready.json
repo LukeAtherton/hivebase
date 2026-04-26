@@ -1,0 +1,33 @@
+{
+  "nodeId": "verify-ready",
+  "capturedAt": "2026-04-26T13:45:47.515Z",
+  "cockpitUrl": "http://localhost:4400/?session=ckse_seed_06_____________",
+  "viewport": {
+    "width": 1440,
+    "height": 900
+  },
+  "highlights": [
+    {
+      "selector": "[data-audit-session-id=\"ckse_seed_06_____________\"]",
+      "label": "outliner row — ready-for-review, but no diff/test view exists",
+      "callout": "left",
+      "rect": {
+        "x": 1069,
+        "y": 345.5,
+        "width": 363,
+        "height": 104
+      }
+    },
+    {
+      "selector": "[data-audit-id=\"session-detail\"]",
+      "label": "timeline ends with done-claim. No diff. No test results. No verbs.",
+      "callout": "right",
+      "rect": {
+        "x": 569,
+        "y": 99.5,
+        "width": 478,
+        "height": 292.5
+      }
+    }
+  ]
+}
