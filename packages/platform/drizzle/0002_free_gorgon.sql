@@ -1,0 +1,1 @@
+ALTER TABLE "cockpit_sessions" ADD COLUMN "current_todos" jsonb;
