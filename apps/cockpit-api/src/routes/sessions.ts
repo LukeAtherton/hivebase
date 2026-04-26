@@ -7,7 +7,8 @@ import {
   cockpitEvents,
   cockpitAgents,
   cockpitProjects,
-} from '@swarm/platform';
+  cockpitAutonomyPolicies,
+} from '@kybernos/platform';
 import { getController } from '../runtime/SessionController.js';
 
 const SendMessageBody = z.object({
@@ -45,6 +46,22 @@ export async function registerSessionRoutes(app: FastifyInstance) {
       .orderBy(desc(cockpitSessions.createdAt))
       .limit(200);
     return { sessions: rows };
+  });
+
+  // Read-only autonomy policy view per agent. Returns the full
+  // capability × stage matrix the gate logic in persistence.ts consults.
+  // Used by the SessionDetail policy panel.
+  app.get('/agents/:id/policies', async (req) => {
+    const id = (req.params as { id: string }).id;
+    const rows = await getCockpitDb()
+      .select({
+        capability: cockpitAutonomyPolicies.capability,
+        stage: cockpitAutonomyPolicies.stage,
+        level: cockpitAutonomyPolicies.level,
+      })
+      .from(cockpitAutonomyPolicies)
+      .where(eq(cockpitAutonomyPolicies.cockpitAgentId, id));
+    return { policies: rows };
   });
 
   app.get('/sessions/:id', async (req, reply) => {

@@ -1,0 +1,22 @@
+{
+  "nodeId": "impl-stale",
+  "capturedAt": "2026-04-26T13:45:39.650Z",
+  "cockpitUrl": "http://localhost:4400/?session=ckse_seed_07_____________",
+  "viewport": {
+    "width": 1440,
+    "height": 900
+  },
+  "highlights": [
+    {
+      "selector": "[data-audit-id=\"decision-cards\"]",
+      "label": "38min old card — no escalation, no differential salience",
+      "callout": "top",
+      "rect": {
+        "x": 0,
+        "y": 434,
+        "width": 1060,
+        "height": 466
+      }
+    }
+  ]
+}

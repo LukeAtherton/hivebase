@@ -1,5 +1,5 @@
 {
-  "name": "swarm",
+  "name": "kybernos",
   "private": true,
   "type": "module",
   "packageManager": "pnpm@9.15.4",

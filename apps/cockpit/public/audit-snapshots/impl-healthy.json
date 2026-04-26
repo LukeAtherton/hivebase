@@ -1,0 +1,33 @@
+{
+  "nodeId": "impl-healthy",
+  "capturedAt": "2026-04-26T13:45:26.610Z",
+  "cockpitUrl": "http://localhost:4400/?session=ckse_seed_01_____________",
+  "viewport": {
+    "width": 1440,
+    "height": 900
+  },
+  "highlights": [
+    {
+      "selector": "[data-audit-id=\"portfolio-map\"]",
+      "label": "tile dim and pulsing — healthy",
+      "callout": "top",
+      "rect": {
+        "x": 0,
+        "y": 86.5,
+        "width": 1060,
+        "height": 318.5
+      }
+    },
+    {
+      "selector": "[data-audit-session-id=\"ckse_seed_01_____________\"]",
+      "label": "outliner row — implementing",
+      "callout": "left",
+      "rect": {
+        "x": 1069,
+        "y": 201.5,
+        "width": 363,
+        "height": 104
+      }
+    }
+  ]
+}

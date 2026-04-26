@@ -1,0 +1,33 @@
+{
+  "nodeId": "impl-advisory-cooldown",
+  "capturedAt": "2026-04-26T13:45:31.826Z",
+  "cockpitUrl": "http://localhost:4400/?session=ckse_seed_02_____________",
+  "viewport": {
+    "width": 1440,
+    "height": 900
+  },
+  "highlights": [
+    {
+      "selector": "[data-audit-id=\"decision-cards\"]",
+      "label": "card today: terse question, evidence behind a click",
+      "callout": "top",
+      "rect": {
+        "x": 0,
+        "y": 434,
+        "width": 1060,
+        "height": 466
+      }
+    },
+    {
+      "selector": "[data-audit-id=\"annunciator\"]",
+      "label": "amber annunciator strip",
+      "callout": "left",
+      "rect": {
+        "x": 0,
+        "y": 0,
+        "width": 1440,
+        "height": 25.5
+      }
+    }
+  ]
+}

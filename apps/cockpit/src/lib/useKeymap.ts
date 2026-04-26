@@ -1,21 +1,27 @@
 import { useEffect } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
-import { api, type DecisionRow } from './api';
+import { api, type DecisionRow, type SessionRow } from './api';
 import { useCockpitStore } from '../store/cockpitStore';
+
+// Sessions hidden from the canvas — kept in sync with isLiveOnMap in
+// scene/PortfolioMap.tsx. Shift+J/K skips these so keyboard nav matches
+// what the operator can actually see.
+const HIDDEN_STATES = new Set(['merged', 'stopped', 'stale-zombie']);
 
 // Single global keymap. Lives on the App so all routes share it.
 //
 // Bindings (when not typing in an input/textarea):
 //   j / k             cycle focus through visible decisions
-//   a / b / r         approve / block / reply (focused decision)
-//   Enter             select the focused decision's session (opens detail)
-//   Esc               close detail / close spawn modal / clear focus
+//   shift+j / shift+k cycle through live agents (canvas-visible)
+//   l                 open detail panel (or focus its textarea if open)
+//   h                 close detail panel (focused decision stays selected)
+//   Enter / a         approve focused decision
+//   i                 start redirect on focused decision (opens detail
+//                     and auto-focuses the redirect textarea)
+//   Esc               cancel redirect → close detail → close modals → clear focus
 //   n                 open spawn modal
 //   ?                 toggle keymap overlay
-//
-// Reply (r) opens the card's textarea via a custom event the card listens to;
-// keeps the keymap pure-state and the card owns its UI.
-export function useKeymap(decisions: DecisionRow[]) {
+export function useKeymap(decisions: DecisionRow[], sessions: SessionRow[] = []) {
   const qc = useQueryClient();
   const focusedDecisionId = useCockpitStore((s) => s.focusedDecisionId);
   const setFocusedDecision = useCockpitStore((s) => s.setFocusedDecision);
@@ -25,6 +31,7 @@ export function useKeymap(decisions: DecisionRow[]) {
   const spawnModalOpen = useCockpitStore((s) => s.spawnModalOpen);
   const selectedSessionId = useCockpitStore((s) => s.selectedSessionId);
   const keymapOpen = useCockpitStore((s) => s.keymapOpen);
+  const startRedirect = useCockpitStore((s) => s.startRedirect);
 
   useEffect(() => {
     function isTypingTarget(t: EventTarget | null): boolean {
@@ -47,32 +54,39 @@ export function useKeymap(decisions: DecisionRow[]) {
       setFocusedDecision(decisions[next].cockpitDecisionId);
     }
 
+    function moveSession(delta: number) {
+      // Live, canvas-visible sessions only — matches isLiveOnMap.
+      const live = sessions.filter((s) => !HIDDEN_STATES.has(s.state));
+      if (live.length === 0) return;
+      const cur = selectedSessionId
+        ? live.findIndex((s) => s.cockpitSessionId === selectedSessionId)
+        : -1;
+      const next = cur === -1 ? 0 : (cur + delta + live.length) % live.length;
+      setSelected(live[next].cockpitSessionId);
+    }
+
     function focused(): DecisionRow | null {
       const idx = focusedIndex();
       return idx === -1 ? null : decisions[idx];
     }
 
-    async function act(action: 'approve' | 'block') {
+    async function approveAction() {
       const d = focused();
       if (!d) return;
       try {
-        if (action === 'approve') await api.approve(d.cockpitDecisionId, 'me');
-        else await api.block(d.cockpitDecisionId, 'me');
+        await api.approve(d.cockpitDecisionId, 'me');
         qc.invalidateQueries({ queryKey: ['decisions'] });
       } catch {
         /* surfaced by the queue's mutation error boundary later */
       }
     }
 
-    function openReplyOnFocused() {
+    function startRedirectOnFocused() {
       const d = focused();
       if (!d) return;
-      // Fire a CustomEvent the card listens to so reply UX stays card-local.
-      window.dispatchEvent(
-        new CustomEvent('cockpit:open-reply', {
-          detail: { decisionId: d.cockpitDecisionId },
-        }),
-      );
+      // startRedirect selects the session and sets redirectingDecisionId.
+      // SessionDetail's mode-effect picks that up and focuses the textarea.
+      startRedirect(d.cockpitDecisionId, d.cockpitSessionId);
     }
 
     function onKey(e: KeyboardEvent) {
@@ -107,6 +121,14 @@ export function useKeymap(decisions: DecisionRow[]) {
         setSpawnModal(true);
         return;
       }
+      // Shift+J / Shift+K cycle through live agents on the canvas
+      // (regardless of whether they have an open decision). e.key
+      // returns the SHIFTED character — so 'J' / 'K'.
+      if (e.key === 'J' || e.key === 'K') {
+        e.preventDefault();
+        moveSession(e.key === 'J' ? 1 : -1);
+        return;
+      }
       // j / k navigate the queue.
       if (e.key === 'j') {
         e.preventDefault();
@@ -118,26 +140,40 @@ export function useKeymap(decisions: DecisionRow[]) {
         move(-1);
         return;
       }
-      // a / b / r act on focused.
-      if (e.key === 'a') {
+      // Enter / a → approve.
+      if (e.key === 'Enter' || e.key === 'a') {
         e.preventDefault();
-        void act('approve');
+        void approveAction();
         return;
       }
-      if (e.key === 'b') {
+      // i → start redirect (opens detail + auto-focuses textarea).
+      if (e.key === 'i') {
         e.preventDefault();
-        void act('block');
+        startRedirectOnFocused();
         return;
       }
-      if (e.key === 'r') {
+      // l → step rightward into the detail panel. If the panel isn't
+      // open, opening it first; either way the textarea takes focus
+      // (sessiondetail listens for cockpit:focus-detail).
+      if (e.key === 'l') {
         e.preventDefault();
-        openReplyOnFocused();
-        return;
-      }
-      // Enter selects the focused decision's session.
-      if (e.key === 'Enter') {
         const d = focused();
-        if (d) setSelected(d.cockpitSessionId);
+        const targetId = selectedSessionId ?? d?.cockpitSessionId ?? null;
+        if (!targetId) return;
+        if (selectedSessionId !== targetId) setSelected(targetId);
+        // Defer the focus event a frame so SessionDetail has mounted /
+        // its textarea ref is alive when we dispatch.
+        requestAnimationFrame(() =>
+          window.dispatchEvent(new CustomEvent('cockpit:focus-detail')),
+        );
+        return;
+      }
+      // h → step leftward back to the queue. Closes the detail panel
+      // but keeps focusedDecisionId so j/k still work.
+      if (e.key === 'h') {
+        if (!selectedSessionId) return;
+        e.preventDefault();
+        setSelected(null);
         return;
       }
     }
@@ -146,6 +182,7 @@ export function useKeymap(decisions: DecisionRow[]) {
     return () => window.removeEventListener('keydown', onKey);
   }, [
     decisions,
+    sessions,
     focusedDecisionId,
     setFocusedDecision,
     setSelected,
@@ -154,6 +191,7 @@ export function useKeymap(decisions: DecisionRow[]) {
     spawnModalOpen,
     selectedSessionId,
     keymapOpen,
+    startRedirect,
     qc,
   ]);
 }

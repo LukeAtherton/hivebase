@@ -44,13 +44,13 @@ pnpm install
 pnpm -r build
 
 # 4. Apply Drizzle migrations
-pnpm --filter @swarm/platform db:migrate
+pnpm --filter @kybernos/platform db:migrate
 
 # 5. In one terminal — backend on :4500
-pnpm --filter @swarm/cockpit-api dev
+pnpm --filter @kybernos/cockpit-api dev
 
 # 6. In another — frontend on :4400
-pnpm --filter @swarm/cockpit dev
+pnpm --filter @kybernos/cockpit dev
 ```
 
 Open `http://localhost:4400`.

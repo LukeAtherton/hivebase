@@ -29,3 +29,11 @@ export function generateCockpitLedgerId(): string {
 export function generateCockpitEventId(): string {
   return `ckev_${ulid()}`;
 }
+
+export function generateCockpitAutonomyPolicyId(): string {
+  return `ckap_${ulid()}`;
+}
+
+export function generateCockpitScopeArtifactId(): string {
+  return `cksa_${ulid()}`;
+}

@@ -1,5 +1,5 @@
 import { pgTable, text, jsonb, index, integer, real } from 'drizzle-orm/pg-core';
-import type { PlanItem } from '@swarm/core';
+import type { PlanItem } from '@kybernos/core';
 
 // One agent run. State machine drives the portfolio-map tile colour.
 export const cockpitSessions = pgTable(
@@ -9,6 +9,13 @@ export const cockpitSessions = pgTable(
     cockpitAgentId: text('cockpit_agent_id').notNull(),
     cockpitProjectId: text('cockpit_project_id').notNull(),
     state: text('state').notNull().default('queued'), // SessionState
+    // Conceptual stage: scoping | implementation | verification.
+    // Distinct from `state` (which is finer-grained machine state).
+    // Used by the autonomy policy lookup — different stages can have
+    // different capability rules. See packages/core/src/types.ts
+    // stageFromSessionState() for the canonical mapping when a session
+    // doesn't yet have an explicit stage set.
+    stage: text('stage').notNull().default('implementation'), // AgentStage
     task: text('task').notNull(), // the brief
     externalId: text('external_id'), // adapter-native: PID, jobId, etc.
     startedAt: text('started_at'),

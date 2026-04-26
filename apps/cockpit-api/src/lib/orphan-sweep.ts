@@ -1,5 +1,5 @@
 import { and, inArray, isNull } from 'drizzle-orm';
-import { getCockpitDb, cockpitSessions } from '@swarm/platform';
+import { getCockpitDb, cockpitSessions } from '@kybernos/platform';
 
 // On startup the api has no in-process SessionControllers, but the DB may
 // still hold sessions in 'implementing' / 'orienting' / 'needs-decision'

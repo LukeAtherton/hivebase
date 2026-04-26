@@ -1,0 +1,33 @@
+{
+  "nodeId": "fleet-overview",
+  "capturedAt": "2026-04-26T13:45:16.183Z",
+  "cockpitUrl": "http://localhost:4400/",
+  "viewport": {
+    "width": 1440,
+    "height": 900
+  },
+  "highlights": [
+    {
+      "selector": "[data-audit-id=\"portfolio-map\"]",
+      "label": "fleet map",
+      "callout": "top",
+      "rect": {
+        "x": 0,
+        "y": 86.5,
+        "width": 1060,
+        "height": 318.5
+      }
+    },
+    {
+      "selector": "[data-audit-id=\"spawn-button\"]",
+      "label": "+ spawn (scoping entry)",
+      "callout": "right",
+      "rect": {
+        "x": 12,
+        "y": 98.5,
+        "width": 88.046875,
+        "height": 26
+      }
+    }
+  ]
+}

@@ -1,0 +1,33 @@
+{
+  "nodeId": "impl-recently-resolved",
+  "capturedAt": "2026-04-26T13:45:29.213Z",
+  "cockpitUrl": "http://localhost:4400/?session=ckse_seed_10_____________",
+  "viewport": {
+    "width": 1440,
+    "height": 900
+  },
+  "highlights": [
+    {
+      "selector": "[data-audit-id=\"decision-queue\"]",
+      "label": "queue cleared — no closure feedback",
+      "callout": "top",
+      "rect": {
+        "x": 0,
+        "y": 406,
+        "width": 1060,
+        "height": 494
+      }
+    },
+    {
+      "selector": "[data-audit-id=\"session-detail\"]",
+      "label": "timeline shows resolution event but no \"you just approved\" reinforcement",
+      "callout": "left",
+      "rect": {
+        "x": 569,
+        "y": 99.5,
+        "width": 478,
+        "height": 292.5
+      }
+    }
+  ]
+}

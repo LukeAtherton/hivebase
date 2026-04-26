@@ -6,8 +6,8 @@ import {
   cockpitDecisions,
   cockpitDecisionLedger,
   cockpitSessions,
-} from '@swarm/platform';
-import { generateCockpitLedgerId } from '@swarm/ids';
+} from '@kybernos/platform';
+import { generateCockpitLedgerId } from '@kybernos/ids';
 import { eventBus } from '../lib/event-bus.js';
 import { getController, type ResolverChoice } from '../runtime/SessionController.js';
 

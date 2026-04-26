@@ -5,3 +5,5 @@ export { cockpitSessions } from './sessions';
 export { cockpitEvents } from './events';
 export { cockpitDecisions } from './decisions';
 export { cockpitDecisionLedger } from './decision-ledger';
+export { cockpitAutonomyPolicies } from './autonomy';
+export { cockpitScopeArtifacts } from './scope-artifacts';

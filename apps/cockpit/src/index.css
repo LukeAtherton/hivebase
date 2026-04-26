@@ -8,3 +8,81 @@ body,
   height: 100%;
   margin: 0;
 }
+
+/* HUD corner brackets — four L-shapes at the corners of an element,
+   rendered with two CSS gradient borders that we mask down to the
+   corners. Used to frame mission-critical zones (territory header,
+   editor canvas, primary modals) without drawing a full outline. */
+@layer utilities {
+  .briefing-frame {
+    --briefing-bracket-color: rgba(125, 211, 252, 0.55);
+    --briefing-bracket-size: 14px;
+    --briefing-bracket-thickness: 1px;
+    position: relative;
+  }
+  .briefing-frame::before,
+  .briefing-frame::after {
+    content: '';
+    position: absolute;
+    pointer-events: none;
+    width: var(--briefing-bracket-size);
+    height: var(--briefing-bracket-size);
+    border: var(--briefing-bracket-thickness) solid var(--briefing-bracket-color);
+  }
+  .briefing-frame::before {
+    top: 0;
+    left: 0;
+    border-right: 0;
+    border-bottom: 0;
+  }
+  .briefing-frame::after {
+    bottom: 0;
+    right: 0;
+    border-left: 0;
+    border-top: 0;
+  }
+  /* Two extra corners for a full HUD frame. Overlay element so we don't
+     need ::before/::after on a parent already using them. */
+  .briefing-corners-tr,
+  .briefing-corners-bl {
+    position: absolute;
+    width: var(--briefing-bracket-size, 14px);
+    height: var(--briefing-bracket-size, 14px);
+    border: var(--briefing-bracket-thickness, 1px) solid
+      var(--briefing-bracket-color, rgba(125, 211, 252, 0.55));
+    pointer-events: none;
+  }
+  .briefing-corners-tr {
+    top: 0;
+    right: 0;
+    border-left: 0;
+    border-bottom: 0;
+  }
+  .briefing-corners-bl {
+    bottom: 0;
+    left: 0;
+    border-right: 0;
+    border-top: 0;
+  }
+
+  /* Minor variant: thinner brackets, muted colour — used on inner
+     instrument panels (stat tiles, brief sections) where the accent
+     would be too loud. */
+  .briefing-frame-muted {
+    --briefing-bracket-color: rgba(90, 101, 115, 0.55);
+    --briefing-bracket-size: 10px;
+  }
+
+  /* Instrument tick rail — vertical column of evenly spaced 1px ticks
+     used as the slate gutter on the left of major surfaces. Implemented
+     as a single repeating-linear-gradient; cheaper than 40 divs. */
+  .briefing-tick-rail {
+    background-image: repeating-linear-gradient(
+      to bottom,
+      rgba(90, 101, 115, 0.45) 0,
+      rgba(90, 101, 115, 0.45) 1px,
+      transparent 1px,
+      transparent 9px
+    );
+  }
+}

@@ -11,8 +11,8 @@
 //   stop()           → abort SDK + reject any open resolvers
 //   ended()          → did the SDK loop already exit?
 
-import { generateCockpitEventId } from '@swarm/ids';
-import type { AgentMessage, NormalisedEvent, NormalisedEventType } from '@swarm/core';
+import { generateCockpitEventId } from '@kybernos/ids';
+import type { AgentMessage, NormalisedEvent, NormalisedEventType } from '@kybernos/core';
 import { eventBus } from '../lib/event-bus.js';
 
 export type ResolverChoice =

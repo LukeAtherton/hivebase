@@ -21,8 +21,8 @@ Postgres on 5433       (docker compose)   creds swarm/swarm_dev/swarm
 Redis on 6379          (docker compose)
 ```
 
-Both run via `pnpm --filter @swarm/cockpit dev` and
-`pnpm --filter @swarm/cockpit-api dev` respectively.
+Both run via `pnpm --filter @kybernos/cockpit dev` and
+`pnpm --filter @kybernos/cockpit-api dev` respectively.
 
 ---
 
@@ -85,13 +85,13 @@ Both run via `pnpm --filter @swarm/cockpit dev` and
 
 | Package | Path | Role |
 |---|---|---|
-| `@swarm/cockpit` | `apps/cockpit` | React frontend (Vite, R3F, Tailwind, Zustand) |
-| `@swarm/cockpit-api` | `apps/cockpit-api` | Fastify backend |
-| `@swarm/core` | `packages/core` | Adapter contract types, normalised event types, trigger classifier. **No runtime deps** |
-| `@swarm/platform` | `packages/platform` | Drizzle schema + migrations + db client |
-| `@swarm/ids` | `packages/ids` | 7 ULID generators (built once, consumed compiled) |
+| `@kybernos/cockpit` | `apps/cockpit` | React frontend (Vite, R3F, Tailwind, Zustand) |
+| `@kybernos/cockpit-api` | `apps/cockpit-api` | Fastify backend |
+| `@kybernos/core` | `packages/core` | Adapter contract types, normalised event types, trigger classifier. **No runtime deps** |
+| `@kybernos/platform` | `packages/platform` | Drizzle schema + migrations + db client |
+| `@kybernos/ids` | `packages/ids` | 7 ULID generators (built once, consumed compiled) |
 
-`@swarm/ids` is the one package that actually compiles to `dist/` and is consumed
+`@kybernos/ids` is the one package that actually compiles to `dist/` and is consumed
 that way. Everything else is consumed via TS source through `tsx`/`vite`.
 
 ---
@@ -118,8 +118,8 @@ Migration table: `__drizzle_migrations_cockpit` (deliberate namespace separation
 from the previous monorepo's platform migrations, even though that's no longer
 relevant in the standalone repo).
 
-Apply with `pnpm --filter @swarm/platform db:migrate`. Generate new ones with
-`pnpm --filter @swarm/platform db:generate` after editing schema.
+Apply with `pnpm --filter @kybernos/platform db:migrate`. Generate new ones with
+`pnpm --filter @kybernos/platform db:generate` after editing schema.
 
 ---
 
@@ -157,7 +157,7 @@ Kept in the codebase because:
 - It's the right adapter shape for future cloud-billed agent types (e.g. when
   we add hivescaler containers driven from the cockpit, those containers run
   their own SDK against a project API key).
-- It exercises the abstraction in `@swarm/core` so the `AgentAdapter` interface
+- It exercises the abstraction in `@kybernos/core` so the `AgentAdapter` interface
   isn't tested by only one implementation.
 
 If you re-discover this and think "we should use the SDK", read
@@ -282,3 +282,221 @@ Then read `COCKPIT_PLAN.md` for the architectural rationale, and
 If you're reading this *after* phase 2 work has started, this snapshot is
 stale. Re-verify the "Known rough" and "What works" sections before relying
 on either.
+
+---
+
+# Phase 2 snapshot — 2026-04-26 (UX overhaul session)
+
+*Written end of a single intensive session that overhauled the cockpit's
+UX and built out the territory-map vision. This section sits below the
+phase 1 snapshot rather than replacing it — read both for full picture.*
+
+## What changed structurally
+
+### Backend additions
+
+- `apps/cockpit-api/src/lib/git-intel.ts` — pure git intelligence module.
+  Reads commits, cumulative changed files, merge status, optional PR
+  status (via `gh`) for any session's worktree branch. No mocks; tests
+  drive a real `git init` + `git worktree` against a tmpdir fixture.
+- `apps/cockpit-api/src/lib/territory-poller.ts` — 6 s loop that runs
+  intel for every live session, hashes a "shape" representation
+  (commits / branch head / merged / PR state / sorted file paths), and
+  emits `territory-updated` on the bus when something material changed.
+- `apps/cockpit-api/src/lib/ticker-feed.ts` — Redis-backed peripheral
+  event feed (`cockpit:ticker` capped list, last 200). Subscribes to
+  the bus, filters to errors / notifications / session lifecycle /
+  decision lifecycle / plan changes, persists each as a `TickerItem`.
+- `apps/cockpit-api/src/routes/territory.ts` — `GET /territory` and
+  `GET /sessions/:id/territory` (fleet + per-session intel) plus
+  `GET /sessions/:id/diff?path=…` (single-file unified diff). 3 s
+  in-process cache shared between routes.
+- `apps/cockpit-api/src/routes/uploads.ts` — `POST /scope/uploads`
+  multipart endpoint backed by `@fastify/multipart`. Saves to
+  `~/.cockpit/uploads/<artifactId>/<filename>`, returns absolute path
+  the spawned agent can read off disk.
+- `apps/cockpit-api/src/routes/ticker.ts` — `GET /ticker` returns the
+  most recent N important events from Redis for client backfill.
+- WebSocket broadcaster (`routes/stream.ts`) now also forwards
+  `territory-updated` events to all connected clients.
+
+### Frontend additions
+
+- `apps/cockpit/src/scene/hex.ts` — pure hex math (axial coords,
+  neighbours, ring iteration, distance, world↔axial conversion +
+  rounding). 9 tests.
+- `apps/cockpit/src/scene/islands.ts` — project-island layout. Each
+  project gets a hex region, snapped to the global hex grid via
+  `worldToAxialRound` so per-island cells line up with the floor
+  pattern. 7 tests.
+- `apps/cockpit/src/scene/allocator.ts` — pure tile allocator. Given
+  N sessions with desired tile counts, returns BFS-from-seed claims
+  that are contiguous, non-overlapping, and round-robin-fair. Plus
+  `redistribute()` (closest-surviving-agent inheritance for freed
+  cells) and `freedCells()` (prev-vs-current diff). 19 tests.
+- `apps/cockpit/src/components/SeedPromptEditor.tsx` — CodeMirror 6
+  markdown editor with cockpit palette, drop/paste image upload
+  (uploads via `/scope/uploads`, inserts absolute path).
+- `apps/cockpit/src/components/ScopingSurface.tsx` — exploration
+  surface for scoping flow (territory brief left, markdown editor +
+  start-scoping right). Earlier in the session.
+- `apps/cockpit/src/components/NewsTicker.tsx` — bottom-of-screen
+  glass strip, GIF-style horizontal scroll, hover-to-pause, click an
+  event to select its agent.
+- `apps/cockpit/src/components/TileDetail.tsx` — floating right-edge
+  panel that opens when an operator clicks a claimed terrain tile.
+  Shows file path, status badge, +/- line counts, PR badge, syntax-
+  highlighted unified diff with hunk + meta + add/del classifications
+  in a cyberpunk palette. 8 tests on the diff parser.
+- `PortfolioMap.tsx` — major rebuild. Tron horizon + sky cylinder,
+  hex floor extending to horizon, project islands as glass hex prism
+  fields, per-cell colour for agent claim ownership, animated colour
+  lerp + candy-crush bounce on ownership transitions, hover-highlight
+  via colour boost (no lift — moving the geometry would drop the
+  cursor off the tile), Laughing-Man rotating identity ring under
+  every agent.
+
+### Frontend changes worth flagging
+
+- `App.tsx` — full-bleed canvas with floating glass panels (queue,
+  detail, tile, ticker). The grid layout that used to dock these is
+  gone. Camera applies an `xBias` so agents stay visible to the right
+  of any active panels.
+- `MapHUD` (`components/SummaryLine.tsx`) — annunciator pulled out of
+  its own top-of-app band into a slide-down tail under the floating
+  HUD. The HUD shifts horizontally with floating panels so it stays
+  centred on the visible canvas region.
+- `DecisionQueue` — sidebar chrome gone; cards float over the canvas.
+  Card layout redesigned: severity left-stripe, tabbed APPROVE/REDIRECT
+  on the right edge (icon-only at rest, tooltip label on hover).
+  Templated reject chips removed entirely.
+- `SessionDetail` — header restyled (stencil callsign, briefing
+  aesthetic). Reply input grew a redirect mode: when
+  `redirectingDecisionId` matches the session, the textarea border
+  + button colour shift to severity tone, send goes to `api.reply`
+  rather than `sendSessionMessage`. Tab-trap inside the panel cycles
+  textarea → send → close, no leak to queue cards.
+- `SpawnModal` — unified with the previous AddProjectModal flow.
+  Single modal, briefing aesthetic (corner brackets, stencil
+  headline), project picker + new-project sub-form + markdown
+  brief editor (same component as ScopingSurface) + callsign +
+  branch. `AddProjectModal.tsx` deleted.
+- Keymap — `Enter`/`a` approve, `i` start-redirect, `l`/`h` step
+  in/out of detail, `Shift+J/K` cycle agents (vs decisions), tab
+  trap inside detail panel.
+- Briefing aesthetic propagated to KeymapOverlay, SessionDetail
+  header, AddProjectModal (now deleted), MapHUD, DecisionQueue.
+  Major Mono Display loaded as the `font-display` family for
+  stencil headers and instrument labels.
+
+## What's now testable
+
+| Module | Tests | Notes |
+|---|---|---|
+| `lib/git-intel` | 8 | real-git tmpdir fixture |
+| `lib/territory-poller.shapeOf` | 8 | dedup invariants |
+| `lib/ticker-feed.classify` | 9 | every event-type branch |
+| `scene/hex` | 9 | axial coords, rings, distance |
+| `scene/islands` | 7 | layout, stable-id ordering, snap |
+| `scene/allocator` | 19 | contiguity, no double-claim, redistribute, freedCells |
+| `store/cockpitStore` | 14 | redirect lifecycle, scoping, recordEvent, openSpawnModal |
+| `components/TileDetail.parseDiff` | 8 | line classification |
+| `tests/scope-artifact` | 4 | (existing) |
+| `tests/autonomy-gate` | 4 | (existing) |
+
+**Total: 90 tests, all green.** 57 in cockpit, 33 in cockpit-api.
+
+## What's known-rough or unfinished
+
+### Unfinished from this session's plan
+
+- **Slice 6 — Pressure feedback** never built. Long-lived unmerged
+  agent territories were going to grow visibly larger / brighter to
+  signal "this needs reviewing soon". The hex height already encodes
+  context-window pressure but not territory age vs main. Skipped to
+  capture state instead. Resume here.
+
+### Test-coverage gaps explicitly accepted
+
+- `routes/territory.ts` and `routes/ticker.ts` route handlers lack
+  their own tests. The handlers are thin (load row → call lib helper
+  → return) and a fastify integration setup didn't exist. The lib
+  helpers they call are well-tested.
+- `git-intel.readFileDiff` (the per-file diff helper used by
+  `/sessions/:id/diff`) wasn't separately tested. Could be reasonably
+  trivially added against the same git-fixture pattern in
+  `tests/git-intel.test.ts`.
+- `routes/uploads.ts` (multipart image upload) has no tests. Mime
+  guard, size cap, sanitisation logic untested.
+- The cell↔file zip inside `PortfolioMap`'s allocations memo isn't
+  unit-tested — the logic lives inside a React `useMemo` and would
+  need a renderer-test setup we don't have.
+
+### Visual / interaction loose ends
+
+- Real spawned agents will populate `/territory` with actual commits
+  and changed files; **seed sessions have placeholder worktree paths**
+  so their `git intel` returns no commits / no claimed cells. Most
+  screenshots taken this session showed empty territory tiles for
+  exactly this reason. To validate Slice 3/4/5 end-to-end you need a
+  freshly spawned agent on a real local repo.
+- The territory poller emits `territory-updated` events; the frontend
+  invalidates the right query key. Not stress-tested with rapid
+  commit churn.
+- The opaque ground disc that closes the gap between hex floor and
+  Tron horizon is `meshBasicMaterial #03050a` — same as the canvas
+  background. If you ever change the canvas bg, this disc will become
+  visible.
+- Hover lift on tiles was removed deliberately (cursor would drop off
+  the moving target). Highlight is colour-only via per-instance
+  `setColorAt` boost. Confirmed working. Light intensity-tuning could
+  still go further if needed.
+- The horizon ring is a flat `ringGeometry` (zero Y thickness) — was
+  a torus, swapped because the torus body was eating a band of sky
+  via silhouette.
+- `meshPhysicalMaterial` was swapped to `meshStandardMaterial` then
+  to `meshBasicMaterial` for the per-cell tiles. Reasons (in order):
+  WebGL context-loss from transmission rendering; instance-colour
+  multiplication darkening everything; ambient-light brightening the
+  unlit tiles too aggressively. The current `meshBasicMaterial`
+  loses the ability to *receive* shadows on the tile faces — they
+  still cast. Wireframe overlay carries depth.
+- Selected-agent tower scale fixed at 1.0 (the 1.5x bump was making
+  it look oversized when float-height + camera dolly already drew
+  attention).
+
+### Backend loose ends
+
+- The `claimedColours` allocation in `PortfolioMap` zips
+  `claims[i] ↔ changedFiles[i]` — i.e. cell→file mapping is by
+  position. Claims are deterministic from the allocator; files are
+  in `git diff --name-status` order (usually alphabetical). Both are
+  stable across renders for stable inputs, but a `git` reorder of
+  changed files would shuffle which cell maps to which file. Not yet
+  observed but would be a real bug.
+- Ticker feed is wired to Redis. If Redis goes down, the live stream
+  still emits items (the `cockpit:ticker-item` CustomEvent fires from
+  WS classification client-side), but the historical backfill
+  endpoint silently returns empty.
+
+## Last verified — phase 2
+
+- 2026-04-26. End of UX overhaul session.
+- 90/90 tests green across `cockpit` and `cockpit-api`.
+- Both packages typecheck clean.
+- Manually validated in Chrome (after a context-loss bug forced a
+  switch off `meshPhysicalMaterial`):
+  - Hex tiles render with state-coloured terrain when claimed.
+  - Empty tile click opens the unified spawn modal in
+    "new project" mode (when canvas-empty) or with project preset
+    (when inside an island).
+  - Hover an empty tile → tile brightens, "+SPAWN" billboard text
+    floats above (camera-facing).
+  - Tron horizon ring + sky gradient render; no dark-band artifact.
+  - Decision card → click → SessionDetail opens, camera dolly
+    follows, identity ring rotates under selected agent.
+  - News ticker scrolls along the bottom; events feed in live.
+- Tested across real spawned agents: **NO**. Seed data is what was
+  used. The territory-tile colouring loop (commit → tile claim →
+  colour change) is not visually confirmed against a real agent
+  yet.

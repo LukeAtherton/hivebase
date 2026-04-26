@@ -27,7 +27,7 @@ export function SessionOutliner({ sessions }: { sessions: SessionRow[] }) {
   }
 
   return (
-    <div className="flex h-full flex-col overflow-y-auto border-l border-border bg-panel/60">
+    <div data-audit-id="outliner" className="flex h-full flex-col overflow-y-auto border-l border-border bg-panel/60">
       <div className="border-b border-border px-3 py-2 text-[10px] uppercase tracking-wide text-muted">
         outliner
       </div>
@@ -81,6 +81,7 @@ function SessionRow({
 
   return (
     <div
+      data-audit-session-id={s.cockpitSessionId}
       className={clsx(
         'mt-1 rounded transition-colors duration-500',
         selected && 'bg-border/60',

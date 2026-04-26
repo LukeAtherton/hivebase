@@ -1,5 +1,5 @@
 import { EventEmitter } from 'node:events';
-import type { NormalisedEvent } from '@swarm/core';
+import type { NormalisedEvent } from '@kybernos/core';
 
 // Process-local pub/sub. Phase 1 ships single-process; Phase 2+ swap for Redis.
 class EventBus extends EventEmitter {

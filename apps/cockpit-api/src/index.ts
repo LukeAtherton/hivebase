@@ -15,9 +15,15 @@ import { ZodError } from 'zod';
 import { loadConfig } from './config.js';
 import { startPersistence } from './lib/persistence.js';
 import { startCooldownScheduler, shutdownCooldownScheduler } from './lib/cooldown-scheduler.js';
+import { startTickerFeed, shutdownTickerFeed } from './lib/ticker-feed.js';
+import { startTerritoryPoller, shutdownTerritoryPoller } from './lib/territory-poller.js';
 import { sweepOrphanSessions } from './lib/orphan-sweep.js';
 import { registerHookRoutes } from './routes/hooks.js';
 import { registerSpawnRoutes } from './routes/spawn.js';
+import { registerScopeRoutes } from './routes/scope.js';
+import { registerUploadRoutes } from './routes/uploads.js';
+import { registerTickerRoutes } from './routes/ticker.js';
+import { registerTerritoryRoutes } from './routes/territory.js';
 import { registerProjectRoutes } from './routes/projects.js';
 import { registerSessionRoutes } from './routes/sessions.js';
 import { registerDecisionRoutes } from './routes/decisions.js';
@@ -54,6 +60,8 @@ async function main() {
 
   startPersistence();
   startCooldownScheduler(config.redisUrl);
+  startTickerFeed(config.redisUrl);
+  startTerritoryPoller();
 
   // Sweep orphan sessions left over from a previous run. Their claude
   // children died with the api but the DB rows still say 'implementing' —
@@ -68,6 +76,10 @@ async function main() {
   await registerHookRoutes(app);
   await registerProjectRoutes(app);
   await registerSpawnRoutes(app, config);
+  await registerScopeRoutes(app, config);
+  await registerUploadRoutes(app);
+  await registerTickerRoutes(app);
+  await registerTerritoryRoutes(app);
   await registerSessionRoutes(app);
   await registerDecisionRoutes(app);
   await registerStreamRoutes(app);
@@ -77,6 +89,8 @@ async function main() {
   const shutdown = async (signal: string) => {
     app.log.info({ signal }, 'cockpit-api shutdown');
     await shutdownCooldownScheduler();
+    await shutdownTickerFeed();
+    await shutdownTerritoryPoller();
     await app.close();
     process.exit(0);
   };
