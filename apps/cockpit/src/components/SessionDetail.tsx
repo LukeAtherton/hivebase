@@ -461,6 +461,20 @@ function EventRowItem({ event: e }: { event: EventRow }) {
       const text = (e.payload['text'] as string | undefined) ?? '';
       const stream = e.payload['stream'] as string | undefined;
       const isError = stream === 'stderr';
+      const isUser = stream === 'user';
+      if (isUser) {
+        return (
+          <li className="flex justify-end">
+            <div className="max-w-[85%] rounded border border-accent/40 bg-accent/[0.08] px-2 py-1 text-text">
+              <div className="mb-0.5 flex items-center gap-1.5 font-mono text-[9px] uppercase tracking-[0.2em] text-accent/80">
+                <span>▸ you</span>
+                <span className="text-muted">{time}</span>
+              </div>
+              <div className="whitespace-pre-wrap">{text.trim()}</div>
+            </div>
+          </li>
+        );
+      }
       return (
         <li className={clsx(isError ? 'text-alarm/80' : 'text-text')}>
           <span className="mr-2 text-[10px] text-muted">{time}</span>

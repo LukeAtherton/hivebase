@@ -210,6 +210,10 @@ export class ClaudeCodeLocalAdapter implements AgentAdapter {
     // follow-up messages to the live session.
     controller.sendUserMessage = async (message: AgentMessage) => {
       writeUserMessage(child, message.text);
+      // Mirror the typed message into the session timeline so the operator
+      // can see what they sent. Without this the UI shows nothing between
+      // submit and the agent's eventual reply.
+      controller.publish('text.delta', { text: message.text, stream: 'user' });
     };
 
     return {
