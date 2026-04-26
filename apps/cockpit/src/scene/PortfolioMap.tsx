@@ -888,6 +888,12 @@ function TerritoryRing({
           if (hoveredIdxRef.current !== idx) {
             hoveredIdxRef.current = idx;
             setHoveredIdx(idx);
+            // Reflect occupancy in the cursor: claimed-without-file
+            // tiles aren't actionable, so swap to default rather than
+            // implying the tile is clickable.
+            const k = cellKey(cellWorldPositions[idx].coord);
+            const occupiedNoFile = !cellToFile.has(k) && claimedColours.has(k);
+            document.body.style.cursor = occupiedNoFile ? 'default' : 'pointer';
           }
         }}
         onPointerOut={() => {
@@ -904,11 +910,15 @@ function TerritoryRing({
           const k = cellKey(cell.coord);
           const hit = cellToFile.get(k);
           if (hit) {
-            // Claimed cell → open the file's diff in TileDetail.
+            // Claimed cell with a file mapping → open the diff.
             setSelectedTile(hit);
+          } else if (claimedColours.has(k)) {
+            // Claimed by an agent but no file yet (e.g. agent has more
+            // tiles than changed files, or hasn't committed). Don't
+            // spawn here — the tile is occupied. No-op until we have
+            // a richer "agent presence" interaction.
+            return;
           } else {
-            // Empty terrain → opens the project-scoped scoping flow
-            // (same affordance the territory circle used to carry).
             // Empty hex inside an existing island → spawn an agent
             // into that project. Modal opens preselected.
             openSpawnModal({ projectId: territory.cockpitProjectId });
@@ -947,11 +957,13 @@ function TerritoryRing({
         />
       </lineSegments>
       {/* Hover hint: "+ SPAWN" floats above the hovered hex when it's
-          empty terrain. Claimed tiles open the diff panel on click and
-          don't need this hint. */}
+          empty terrain. Claimed tiles (whether mapped to a file or just
+          held by an agent) suppress the hint — spawning into an
+          occupied tile isn't a valid action. */}
       {hoveredIdx !== null &&
         cellWorldPositions[hoveredIdx] &&
-        !cellToFile.has(cellKey(cellWorldPositions[hoveredIdx].coord)) && (
+        !cellToFile.has(cellKey(cellWorldPositions[hoveredIdx].coord)) &&
+        !claimedColours.has(cellKey(cellWorldPositions[hoveredIdx].coord)) && (
           <Billboard
             position={[
               cellWorldPositions[hoveredIdx].x,
