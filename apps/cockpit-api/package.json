@@ -8,7 +8,7 @@
     "start": "tsx src/index.ts",
     "build": "echo 'Service runs with tsx — no build step'",
     "clean": "echo 'No dist to clean'",
-    "typecheck": "tsc --noEmit",
+    "typecheck": "tsgo --noEmit",
     "test": "vitest run",
     "validate:autonomy": "tsx scripts/validate-autonomy.ts"
   },
@@ -31,6 +31,7 @@
   "devDependencies": {
     "@types/node": "^22.0.0",
     "@types/pg": "^8.11.10",
+    "@typescript/native-preview": "7.0.0-dev.20260619.1",
     "tsx": "^4.19.0",
     "typescript": "^5.7.0",
     "vitest": "^3.0.0"

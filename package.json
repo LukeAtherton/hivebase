@@ -19,10 +19,13 @@
     "*.{ts,tsx,js,jsx}": "eslint --fix"
   },
   "pnpm": {
-    "onlyBuiltDependencies": ["esbuild"]
+    "onlyBuiltDependencies": [
+      "esbuild"
+    ]
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
+    "@typescript/native-preview": "7.0.0-dev.20260619.1",
     "eslint": "^10.1.0",
     "husky": "^9.1.7",
     "lint-staged": "^16.4.0",

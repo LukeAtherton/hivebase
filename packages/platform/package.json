@@ -15,7 +15,7 @@
     "db:migrate": "tsx src/migrate.ts",
     "db:seed": "tsx src/seed-mock-states.ts",
     "db:studio": "drizzle-kit studio",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsgo --noEmit"
   },
   "dependencies": {
     "@kybernos/core": "workspace:*",
@@ -25,6 +25,7 @@
   "devDependencies": {
     "@types/node": "^22.0.0",
     "@types/pg": "^8.11.10",
+    "@typescript/native-preview": "7.0.0-dev.20260619.1",
     "dotenv": "^16.4.0",
     "drizzle-kit": "^0.22.0",
     "tsx": "^4.19.0",
