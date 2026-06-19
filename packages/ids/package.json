@@ -9,14 +9,15 @@
     }
   },
   "scripts": {
-    "build": "tsc",
+    "build": "tsgo",
     "clean": "rm -rf dist *.tsbuildinfo",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsgo --noEmit"
   },
   "dependencies": {
     "ulid": "^2.3.0"
   },
   "devDependencies": {
+    "@typescript/native-preview": "7.0.0-dev.20260619.1",
     "typescript": "^5.7.0"
   }
 }
